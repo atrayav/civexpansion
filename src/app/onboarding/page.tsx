@@ -1,0 +1,190 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Map, Briefcase, Building2, ChevronRight, Loader2, Sparkles } from "lucide-react";
+
+const US_STATES = [
+  { id: "CA", name: "California" },
+  { id: "NY", name: "New York" },
+  { id: "TX", name: "Texas" },
+  { id: "FL", name: "Florida" },
+  { id: "IL", name: "Illinois" },
+  { id: "WA", name: "Washington" },
+  { id: "CO", name: "Colorado" },
+  { id: "MA", name: "Massachusetts" }
+];
+
+export default function OnboardingPage() {
+  const router = useRouter();
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  
+  // Form State
+  const [businessName, setBusinessName] = useState("");
+  const [businessType, setBusinessType] = useState("");
+  const [selectedStates, setSelectedStates] = useState<string[]>([]);
+
+  const toggleState = (stateId: string) => {
+    setSelectedStates(prev => 
+      prev.includes(stateId) 
+        ? prev.filter(id => id !== stateId)
+        : [...prev, stateId]
+    );
+  };
+
+  const handleAnalyze = async () => {
+    setLoading(true);
+    // Simulate API call to Claude
+    try {
+      const queryParams = new URLSearchParams({
+        b_name: businessName,
+        b_type: businessType,
+        states: selectedStates.join(",")
+      }).toString();
+      
+      // We will create this output page next
+      router.push(`/compliance-map?${queryParams}`);
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 selection:bg-indigo-500/30">
+      {/* Background blobs */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-[128px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/20 rounded-full blur-[128px] pointer-events-none" />
+
+      <div className="w-full max-w-2xl relative z-10">
+        <div className="mb-8 text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-500 to-cyan-400 font-bold text-white shadow-lg shadow-indigo-500/20 mb-4">
+            C
+          </div>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Setup your compliance profile</h1>
+          <p className="text-slate-400 mt-2">Let AI build your roadmap for multi-state expansion</p>
+        </div>
+
+        <Card className="border-white/10 bg-slate-900/50 backdrop-blur-xl shadow-2xl">
+          <CardHeader>
+            <div className="flex items-center justify-between mb-2">
+              <Badge variant="outline" className="border-indigo-500/30 text-indigo-300 bg-indigo-500/10">
+                Step {step} of 2
+              </Badge>
+              <div className="flex gap-1">
+                <div className={`h-1.5 w-8 rounded-full transition-colors ${step >= 1 ? 'bg-indigo-500' : 'bg-slate-800'}`} />
+                <div className={`h-1.5 w-8 rounded-full transition-colors ${step >= 2 ? 'bg-indigo-500' : 'bg-slate-800'}`} />
+              </div>
+            </div>
+            <CardTitle className="text-xl text-white">
+              {step === 1 ? 'Business Details' : 'Target Jurisdictions'}
+            </CardTitle>
+            <CardDescription className="text-slate-400">
+              {step === 1 ? 'Tell us about your company structure.' : 'Where are you looking to expand next?'}
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent className="space-y-6">
+            {step === 1 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                    <Building2 className="w-4 h-4" /> Company Name
+                  </label>
+                  <Input 
+                    placeholder="Acme Corp" 
+                    className="bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                    <Briefcase className="w-4 h-4" /> Legal Entity Type
+                  </label>
+                  <Select value={businessType} onValueChange={setBusinessType}>
+                    <SelectTrigger className="bg-slate-950/50 border-slate-800 text-white focus:ring-indigo-500">
+                      <SelectValue placeholder="Select business type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                      <SelectItem value="llc">LLC (Limited Liability Company)</SelectItem>
+                      <SelectItem value="c-corp">C-Corporation</SelectItem>
+                      <SelectItem value="s-corp">S-Corporation</SelectItem>
+                      <SelectItem value="sole-prop">Sole Proprietorship</SelectItem>
+                      <SelectItem value="partnership">Partnership</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <label className="text-sm font-medium text-slate-300 flex items-center gap-2 mb-3">
+                  <Map className="w-4 h-4" /> Select States
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {US_STATES.map((state) => {
+                    const isSelected = selectedStates.includes(state.id);
+                    return (
+                      <button
+                        key={state.id}
+                        onClick={() => toggleState(state.id)}
+                        className={`p-3 rounded-lg border text-sm font-medium transition-all duration-200 flex flex-col items-center justify-center gap-2 ${
+                          isSelected 
+                            ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-[0_0_15px_-3px_rgba(99,102,241,0.3)]' 
+                            : 'bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-600 hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <span className="text-xl">{state.id}</span>
+                        <span className="text-xs max-w-full truncate">{state.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+
+          <CardFooter className="flex justify-between border-t border-slate-800 pt-6">
+            <Button 
+              variant="ghost" 
+              onClick={() => step === 2 ? setStep(1) : router.push('/')}
+              className="text-slate-400 hover:text-white hover:bg-slate-800"
+            >
+              Back
+            </Button>
+            
+            {step === 1 ? (
+              <Button 
+                onClick={() => setStep(2)} 
+                disabled={!businessName || !businessType}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/25 transition-all"
+              >
+                Next Step <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleAnalyze} 
+                disabled={selectedStates.length === 0 || loading}
+                className="bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white shadow-lg shadow-indigo-500/25 transition-all"
+              >
+                {loading ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</>
+                ) : (
+                  <><Sparkles className="w-4 h-4 mr-2" /> Generate Intelligence Map</>
+                )}
+              </Button>
+            )}
+          </CardFooter>
+        </Card>
+      </div>
+    </div>
+  );
+}
