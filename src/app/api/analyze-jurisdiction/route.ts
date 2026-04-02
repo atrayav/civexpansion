@@ -2,66 +2,60 @@ import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || 'fake-key-for-now', 
+  apiKey: process.env.ANTHROPIC_API_KEY || 'fake-key-for-now',
 });
 
 export async function POST(req: Request) {
   try {
-    const { businessName, businessType, states } = await req.json();
+    const body = await req.json();
+    const { businessName, businessType, states } = body;
 
-    if (!businessType || !states) {
-      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    if (!businessType || typeof businessType !== 'string' || businessType.trim() === '') {
+      return NextResponse.json({ error: 'businessType is required' }, { status: 400 });
     }
 
-    const stateList = Array.isArray(states) ? states.join(', ') : states;
+    if (!Array.isArray(states) || states.length === 0) {
+      return NextResponse.json(
+        { error: 'states must be a non-empty array' },
+        { status: 400 }
+      );
+    }
 
-    const systemPrompt = `You are an expert multi-jurisdictional compliance assistant. 
-    Analyze the compliance requirements for a \${businessType} operating in \${stateList}.
-    Provide a detailed JSON array of objects representing required licenses, permits, and registrations.
-    Each object MUST have:
-    - "id" (string, e.g., "req-1")
-    - "state" (string, the state abbreviation like CA, NY)
-    - "name" (string, e.g., "Foreign Qualification", "Sales Tax Permit")
-    - "description" (string, explaining why it's needed)
-    - "urgency" (string, strictly one of: "Critical", "Moderate", "Standard" based on standard legal operational blocking)
-    - "agency" (string, e.g., "Secretary of State", "Department of Revenue")
-    - "estimatedDays" (number, typical processing time)
-    
-    Return ONLY valid JSON array with no markdown wrappers or additional text. DO NOT wrap with \`\`\`json.`;
+    // TODO: replace with production prompt
+    const systemPrompt = `/* TODO: production jurisdiction analysis prompt */`;
 
-    // Prompt engineering to force JSON output
     const msg = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
-      temperature: 0.2,
-      system: "You output raw valid JSON strictly.",
+      max_tokens: 8096,
+      system: systemPrompt,
       messages: [
         {
           role: 'user',
-          content: systemPrompt
-        }
-      ]
+          content: JSON.stringify({ businessName, businessType, states }),
+        },
+      ],
     });
 
-    // Parse the JSON
-    // @ts-ignore
-    const responseText = msg.content[0].text;
-    
-    let requirements = [];
+    const responseText = (msg.content[0] as { type: 'text'; text: string }).text;
+
+    let requirements;
     try {
-      requirements = JSON.parse(responseText.trim());
-    } catch (e) {
-      console.error("Failed to parse JSON", responseText);
-      return NextResponse.json({ error: 'AI produced invalid format' }, { status: 500 });
+      const json = responseText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+      requirements = JSON.parse(json);
+    } catch {
+      console.error('Failed to parse jurisdiction JSON:', responseText);
+      return NextResponse.json(
+        { error: 'AI produced invalid JSON', raw: responseText },
+        { status: 500 }
+      );
     }
 
-    // In a real app we'd save these to Supabase 'requirements' table right here
-    // ... Supabase logic ...
-
     return NextResponse.json({ success: true, requirements });
-    
   } catch (error: any) {
     console.error('Jurisdiction API Error:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }
