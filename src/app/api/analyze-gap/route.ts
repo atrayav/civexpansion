@@ -25,14 +25,27 @@ Analyze the documents and return a single JSON object with this exact shape:
       "name": string,         // e.g. "New York Sales Tax Certificate"
       "state": string,        // 2-letter state code
       "urgency": "immediate" | "soon" | "planned",
-      "description": string   // 1-2 sentence explanation of why this is needed
+      "description": string,  // 1-2 sentence explanation of why this is needed
+      "confidenceScore": number,   // 0.0–1.0 — how confident you are this license is truly missing
+      "confidenceLabel": "High" | "Medium" | "Low",
+      "confidenceReason": string   // 1 sentence: what makes you more or less certain
     }
   ],
-  "overallScore": number,     // 0-100: compliance completeness percentage
-  "summary": string           // 2-3 sentence plain English summary of the compliance situation
+  "overallScore": number,           // 0-100: compliance completeness percentage
+  "analysisConfidence": number,     // 0.0–1.0: overall confidence in this gap analysis
+  "summary": string,                // 2-3 sentence plain English summary of the compliance situation
+  "caveat": string                  // 1-2 sentence note about limitations of this analysis
 }
 
-Rules:
+Confidence scoring rules:
+- confidenceScore on missingLicenses: how certain you are the license is required AND missing.
+  - 0.85–1.0: You clearly see a well-known required license is absent from the documents.
+  - 0.60–0.84: The license is likely required but document quality or business context introduces some uncertainty.
+  - Below 0.60: You are uncertain — the requirement may be conditional, industry-specific, or hard to determine from the documents alone.
+- analysisConfidence: overall quality of this analysis given document readability and completeness.
+  - Lower it if documents are blurry, partial, or don't clearly show license type/state.
+
+Other rules:
 - Return ONLY valid JSON with no markdown fences, no explanation.
 - "expiring" means within 60 days, "expired" means past the expiry date.
 - Base missingLicenses on the business context (type + target states) vs. what documents are present.

@@ -16,6 +16,8 @@ Each object in the array must strictly follow this TypeScript shape:
   "stateRiskLevel": "high" | "medium" | "low",
   "stateRiskRationale": string,   // 1 sentence explaining the risk level
   "priorityOrder": string[],      // array of requirement IDs in recommended filing order
+  "overallStateConfidence": number,    // 0.0–1.0, average of all requirement confidenceScores
+  "lastRegulationCheck": string,       // 1 sentence: how stable/current this state's regs are
   "requirements": [
     {
       "id": string,               // short unique slug e.g. "ca-foreign-qualification"
@@ -30,12 +32,24 @@ Each object in the array must strictly follow this TypeScript shape:
       "filingUrl": string | null, // official state agency URL if known, else null
       "penaltyForNonCompliance": string,
       "isIndustrySpecific": boolean,
-      "commonMistakes": string[]  // 2-3 common mistakes businesses make
+      "commonMistakes": string[], // 2-3 common mistakes businesses make
+      "confidenceScore": number,  // 0.0–1.0 — see scoring rules below
+      "confidenceLabel": "High" | "Medium" | "Low",
+      "confidenceReason": string, // 1 sentence explaining the score
+      "verifyUrl": string         // official state agency URL to verify this requirement
     }
   ]
 }
 
-Rules:
+Confidence scoring rules — be honest, do not inflate scores:
+- 0.85–1.0 (High): Foundational, highly stable requirements — business registration, federal EIN, basic sales tax registration, registered agent. These rarely change in substance.
+- 0.60–0.84 (Medium): Industry-specific licenses with moderate complexity — contractor licenses, professional licenses, health permits. May have renewal cycles or moderate amendment frequency.
+- 0.40–0.59 (Low): Specialized or rapidly-changing requirements — telehealth regulations, fintech money-transmitter licenses, cannabis licenses, crypto-related filings. Verify before acting.
+- Below 0.40: Requirements you are genuinely uncertain about. Flag explicitly in confidenceReason and note what the user should verify.
+- Set confidenceLabel to "High" if score >= 0.85, "Medium" if 0.60–0.84, "Low" if below 0.60.
+- Compute overallStateConfidence as the mean of all requirement confidenceScores for that state, rounded to 2 decimal places.
+
+Other rules:
 - Return ONLY a valid JSON array with no markdown fences, no explanation, no commentary.
 - Include 3-6 requirements per state covering: foreign qualification, registered agent, state tax registration, local business license, and any industry-specific permits.
 - Be specific and accurate — use real agency names and real filing URLs where possible.
