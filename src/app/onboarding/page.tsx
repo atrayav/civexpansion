@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Map, Briefcase, Building2, ChevronRight, Loader2, Sparkles } from "lucide-react";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
 
 const US_STATES = [
   { id: "AL", name: "Alabama" },
@@ -82,15 +83,34 @@ export default function OnboardingPage() {
 
   const handleAnalyze = async () => {
     setLoading(true);
-    // Simulate API call to Claude
     try {
+      const supabase = getSupabaseBrowser();
+
+      // 1. Persist business context to auth user metadata so API routes can read it
+      await supabase.auth.updateUser({
+        data: {
+          business_name: businessName,
+          business_type: businessType,
+          target_states: selectedStates,
+        },
+      });
+
+      // 2. Update the public.users profile row with company name + entity type
+      await fetch("/api/auth/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_name: businessName,
+          business_type: businessType,
+        }),
+      });
+
       const queryParams = new URLSearchParams({
         b_name: businessName,
         b_type: businessType,
-        states: selectedStates.join(",")
+        states: selectedStates.join(","),
       }).toString();
-      
-      // We will create this output page next
+
       router.push(`/compliance-map?${queryParams}`);
     } catch (e) {
       console.error(e);

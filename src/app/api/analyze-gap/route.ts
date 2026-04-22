@@ -41,15 +41,25 @@ Rules:
 
 export async function POST(req: Request) {
   try {
-    const { documents, targetStates, businessType } = await req.json()
+    const body = await req.json()
+    const { documents } = body
 
     if (!documents || documents.length === 0) {
       return NextResponse.json({ error: 'No documents provided' }, { status: 400 })
     }
 
-    // Get authenticated user
+    // Get authenticated user and pull business context from their metadata
     const sessionClient = await createSessionClient()
     const { data: { user } } = await sessionClient.auth.getUser()
+
+    const meta = (user?.user_metadata ?? {}) as Record<string, unknown>
+    // Prefer values from user metadata; fall back to request body for backwards compat
+    const businessType: string =
+      (meta.business_type as string) ?? body.businessType ?? 'LLC'
+    const targetStates: string =
+      Array.isArray(meta.target_states)
+        ? (meta.target_states as string[]).join(', ')
+        : (meta.target_states as string) ?? body.targetStates ?? 'Unknown'
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

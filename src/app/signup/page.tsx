@@ -52,6 +52,13 @@ export default function SignupPage() {
       return;
     }
 
+    // Create the user's profile row in public.users (uses service role via API route)
+    await fetch("/api/auth/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company_name: "" }),
+    });
+
     router.push("/onboarding");
     router.refresh();
   };
