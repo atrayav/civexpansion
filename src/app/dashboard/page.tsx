@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   CalendarDays, AlertTriangle, ArrowUpRight, CheckCircle2,
-  Clock, LogOut, Map, PlusCircle, Loader2, FileText
+  Clock, Map, PlusCircle, Loader2, FileText
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import AppNav from "@/components/AppNav";
 
 interface StateGroup {
   state: string;
@@ -63,19 +63,13 @@ function urgencyBadgeClass(urgency: string) {
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [licenses, setLicenses] = useState<TrackedLicense[]>([]);
   const [licensesLoading, setLicensesLoading] = useState(true);
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
-
-    supabase.auth.getUser().then(({ data }: { data: { user: { email?: string } | null } }) => {
-      setUserEmail(data.user?.email ?? null);
-    });
 
     supabase
       .from("analyses")
@@ -104,13 +98,6 @@ export default function DashboardPage() {
         setLicensesLoading(false);
       });
   }, []);
-
-  const handleSignOut = async () => {
-    const supabase = getSupabaseBrowser();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  };
 
   // Derive stats from fetched analyses
   const totalStates = new Set(analyses.flatMap((a) => a.states ?? [])).size;
@@ -149,39 +136,21 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans p-4 md:p-8">
+      <AppNav />
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none" />
 
-      <div className="max-w-6xl mx-auto mt-8 relative z-10 animate-in fade-in duration-700">
+      <div className="max-w-6xl mx-auto mt-28 relative z-10 animate-in fade-in duration-700">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <Link href="/" className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-cyan-400 flex items-center justify-center font-bold text-white text-sm">
-                  C
-                </div>
-              </Link>
-              <h1 className="text-3xl font-bold tracking-tight text-white">Compliance Dashboard</h1>
-            </div>
-            <p className="text-slate-400 text-sm pl-10">
-              {userEmail ? `Signed in as ${userEmail}` : "Your jurisdiction intelligence hub"}
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-white mb-1">Compliance Dashboard</h1>
+            <p className="text-slate-400 text-sm">Your jurisdiction intelligence hub</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/onboarding">
-              <Button className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hidden md:flex">
-                <PlusCircle className="w-4 h-4 mr-2" /> New Analysis
-              </Button>
-            </Link>
-            <Button
-              variant="ghost"
-              onClick={handleSignOut}
-              className="text-slate-400 hover:text-white hover:bg-slate-800 gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden md:inline">Sign Out</span>
+          <Link href="/onboarding">
+            <Button className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hidden md:flex">
+              <PlusCircle className="w-4 h-4 mr-2" /> New Analysis
             </Button>
-          </div>
+          </Link>
         </div>
 
         {/* Stats Grid */}

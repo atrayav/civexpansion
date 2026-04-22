@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UploadCloud, FileImage, ShieldAlert, ShieldCheck, Loader2, ArrowRight, AlertCircle } from "lucide-react";
+import AppNav from "@/components/AppNav";
 
 interface MissingLicense {
   name: string;
@@ -89,11 +90,12 @@ export default function GapAnalysisPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans p-4 md:p-8">
+      <AppNav />
       {/* Background blobs */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-[128px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-rose-600/10 rounded-full blur-[128px] pointer-events-none" />
 
-      <div className="max-w-5xl mx-auto mt-12 relative z-10">
+      <div className="max-w-5xl mx-auto mt-28 relative z-10">
         <div className="mb-10 text-center">
           <Badge variant="outline" className="border-indigo-500/30 text-indigo-300 bg-indigo-500/10 mb-4 py-1.5 px-4 rounded-full">
             Vision AI Powered

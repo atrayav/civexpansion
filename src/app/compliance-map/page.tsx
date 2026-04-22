@@ -17,6 +17,7 @@ import {
   Building2,
   AlertTriangle,
 } from "lucide-react";
+import AppNav from "@/components/AppNav";
 
 // ---------- Types ---------------------------------------------------------
 
@@ -452,7 +453,7 @@ function ComplianceMapContent() {
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto py-12 px-4 md:px-6 mt-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
+    <div className="w-full max-w-6xl mx-auto py-12 px-4 md:px-6 mt-28 animate-in fade-in slide-in-from-bottom-8 duration-700">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
         <div>
@@ -515,6 +516,7 @@ function ComplianceMapContent() {
 export default function ComplianceMapPage() {
   return (
     <div className="min-h-screen bg-slate-950 font-sans selection:bg-indigo-500/30 relative overflow-hidden">
+      <AppNav />
       <div className="absolute top-0 right-1/4 w-[800px] h-[800px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none" />
       <div className="absolute bottom-1/4 left-1/4 w-[600px] h-[600px] bg-cyan-600/10 rounded-full blur-[150px] pointer-events-none" />
       <Suspense
