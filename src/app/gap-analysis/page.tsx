@@ -1,38 +1,52 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { UploadCloud, FileImage, ShieldAlert, ShieldCheck, Loader2, ArrowRight } from "lucide-react";
+import { UploadCloud, FileImage, ShieldAlert, ShieldCheck, Loader2, ArrowRight, AlertCircle } from "lucide-react";
 
-interface GapReport {
-  foundLicenses: { name: string, state: string, status: string }[];
-  missingLicenses: { name: string, state: string, urgency: string, description: string }[];
+interface MissingLicense {
+  name: string;
+  state: string;
+  urgency: string;
+  description: string;
+  confidenceScore?: number;
+  confidenceLabel?: "High" | "Medium" | "Low";
+  confidenceReason?: string;
 }
 
+interface GapReport {
+  foundLicenses: { name: string; state: string; status: string }[];
+  missingLicenses: MissingLicense[];
+  overallScore: number;
+  analysisConfidence?: number;
+  summary?: string;
+  caveat?: string;
+}
+
+const confidenceBadge: Record<string, string> = {
+  High:   "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  Medium: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  Low:    "bg-rose-500/20 text-rose-400 border-rose-500/30",
+};
+
 export default function GapAnalysisPage() {
-  const router = useRouter();
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<GapReport | null>(null);
-  
-  // Dummy fields for the MVP (in real app, this comes from their profile/onboarding)
-  const targetStates = "CA, NY";
-  const businessType = "LLC";
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const droppedFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    setFiles(prev => [...prev, ...droppedFiles].slice(0, 3)); // Max 3 for MVP demo
+    setFiles(prev => [...prev, ...droppedFiles].slice(0, 3));
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
-      setFiles(prev => [...prev, ...selectedFiles].slice(0, 3)); // Max 3
+      setFiles(prev => [...prev, ...selectedFiles].slice(0, 3));
     }
   };
 
@@ -58,16 +72,16 @@ export default function GapAnalysisPage() {
       const res = await fetch("/api/analyze-gap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documents: docs, targetStates, businessType })
+        body: JSON.stringify({ documents: docs })
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
 
       setReport(data.analysis);
-    } catch (e: any) {
-      console.error(e);
-      alert("Error checking gaps: " + e.message);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      alert("Error checking gaps: " + msg);
     } finally {
       setLoading(false);
     }
@@ -88,32 +102,32 @@ export default function GapAnalysisPage() {
             Compliance Gap Analysis
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Upload images of your current licenses. Claude will cross-reference them against requirements for a <strong className="text-white">{businessType}</strong> expanding to <strong className="text-white">{targetStates}</strong> to identify missing red-tape.
+            Upload images of your current licenses. Claude will cross-reference them against your target state requirements to identify missing red-tape.
           </p>
         </div>
 
         {!report ? (
           <Card className="bg-slate-900/50 border-white/10 backdrop-blur-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-8">
             <CardContent className="p-8">
-              <div 
+              <div
                 className="border-2 border-dashed border-slate-700 bg-slate-950/50 hover:bg-slate-900/80 hover:border-indigo-500/50 rounded-xl p-12 flex flex-col items-center justify-center transition-all cursor-pointer group"
                 onDragOver={e => e.preventDefault()}
                 onDrop={handleDrop}
                 onClick={() => document.getElementById('file-upload')?.click()}
               >
-                <input 
-                  id="file-upload" 
-                  type="file" 
-                  accept="image/jpeg, image/png, image/webp" 
-                  multiple 
-                  className="hidden" 
+                <input
+                  id="file-upload"
+                  type="file"
+                  accept="image/jpeg, image/png, image/webp"
+                  multiple
+                  className="hidden"
                   onChange={handleFileSelect}
                 />
                 <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-6 text-slate-400 group-hover:text-indigo-400 group-hover:scale-110 transition-all shadow-inner shadow-black/50">
                   <UploadCloud className="w-8 h-8" />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">Drag & Drop License Documents</h3>
-                <p className="text-slate-500 text-center">Support for JPG, PNG. Max 3 files for MVP.</p>
+                <p className="text-slate-500 text-center">Support for JPG, PNG. Max 3 files.</p>
               </div>
 
               {files.length > 0 && (
@@ -134,8 +148,8 @@ export default function GapAnalysisPage() {
               <Button variant="ghost" className="text-slate-400" onClick={() => setFiles([])} disabled={files.length === 0 || loading}>
                 Clear
               </Button>
-              <Button 
-                onClick={runAnalysis} 
+              <Button
+                onClick={runAnalysis}
                 disabled={files.length === 0 || loading}
                 className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 shadow-lg shadow-indigo-500/25 transition-all"
               >
@@ -149,6 +163,34 @@ export default function GapAnalysisPage() {
           </Card>
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            {/* Analysis confidence + overall score banner */}
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-700/50 bg-slate-900/40 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-4 h-4 text-slate-500 shrink-0" />
+                <div>
+                  {report.analysisConfidence !== undefined && (
+                    <p className="text-sm font-medium text-white">
+                      Analysis Confidence:{" "}
+                      <span className={
+                        report.analysisConfidence >= 0.85
+                          ? "text-emerald-400"
+                          : report.analysisConfidence >= 0.60
+                          ? "text-amber-400"
+                          : "text-rose-400"
+                      }>
+                        {Math.round(report.analysisConfidence * 100)}%
+                      </span>
+                      <span className="text-slate-500 font-normal ml-2 text-xs">— Based on document quality and completeness</span>
+                    </p>
+                  )}
+                  <p className="text-sm text-slate-400 mt-0.5">
+                    Compliance score: <strong className="text-white">{report.overallScore ?? 0}%</strong>
+                    {report.summary && <span className="ml-2 text-slate-500">· {report.summary}</span>}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Found */}
               <Card className="bg-emerald-950/20 border-emerald-500/20 shadow-2xl overflow-hidden border">
@@ -194,10 +236,30 @@ export default function GapAnalysisPage() {
                           <TableCell>
                             <div className="font-bold text-slate-200">{lic.name}</div>
                             <div className="text-xs text-slate-500 mt-1 line-clamp-1">{lic.description}</div>
+                            {lic.confidenceLabel && (
+                              <Badge
+                                variant="outline"
+                                className={`mt-1.5 border text-[10px] px-1.5 ${confidenceBadge[lic.confidenceLabel]}`}
+                              >
+                                {lic.confidenceLabel} Confidence
+                                {lic.confidenceScore !== undefined && (
+                                  <span className="ml-1 opacity-70">· {Math.round(lic.confidenceScore * 100)}%</span>
+                                )}
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="text-slate-400 w-16 text-center">{lic.state}</TableCell>
                           <TableCell className="text-right w-28">
-                            <Badge variant="outline" className={`border whitespace-nowrap \${lic.urgency === 'Critical' ? 'border-rose-500/50 bg-rose-500/20 text-rose-300' : 'border-amber-500/50 bg-amber-500/20 text-amber-300'}`}>
+                            <Badge
+                              variant="outline"
+                              className={`border whitespace-nowrap ${
+                                lic.urgency === 'immediate'
+                                  ? 'border-rose-500/50 bg-rose-500/20 text-rose-300'
+                                  : lic.urgency === 'soon'
+                                  ? 'border-amber-500/50 bg-amber-500/20 text-amber-300'
+                                  : 'border-slate-500/50 bg-slate-500/20 text-slate-300'
+                              }`}
+                            >
                               {lic.urgency}
                             </Badge>
                           </TableCell>
@@ -208,8 +270,13 @@ export default function GapAnalysisPage() {
                 </CardContent>
               </Card>
             </div>
-            
-            <div className="flex justify-center mt-10">
+
+            {/* Caveat note */}
+            {report.caveat && (
+              <p className="text-center text-xs text-slate-600 italic">{report.caveat}</p>
+            )}
+
+            <div className="flex justify-center mt-6">
               <Button onClick={() => setReport(null)} variant="outline" className="border-slate-700 bg-slate-900 hover:bg-slate-800 text-white rounded-full px-8">
                 Upload More Documents
               </Button>
