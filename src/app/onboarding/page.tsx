@@ -10,14 +10,56 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Map, Briefcase, Building2, ChevronRight, Loader2, Sparkles } from "lucide-react";
 
 const US_STATES = [
+  { id: "AL", name: "Alabama" },
+  { id: "AK", name: "Alaska" },
+  { id: "AZ", name: "Arizona" },
+  { id: "AR", name: "Arkansas" },
   { id: "CA", name: "California" },
-  { id: "NY", name: "New York" },
-  { id: "TX", name: "Texas" },
-  { id: "FL", name: "Florida" },
-  { id: "IL", name: "Illinois" },
-  { id: "WA", name: "Washington" },
   { id: "CO", name: "Colorado" },
-  { id: "MA", name: "Massachusetts" }
+  { id: "CT", name: "Connecticut" },
+  { id: "DE", name: "Delaware" },
+  { id: "FL", name: "Florida" },
+  { id: "GA", name: "Georgia" },
+  { id: "HI", name: "Hawaii" },
+  { id: "ID", name: "Idaho" },
+  { id: "IL", name: "Illinois" },
+  { id: "IN", name: "Indiana" },
+  { id: "IA", name: "Iowa" },
+  { id: "KS", name: "Kansas" },
+  { id: "KY", name: "Kentucky" },
+  { id: "LA", name: "Louisiana" },
+  { id: "ME", name: "Maine" },
+  { id: "MD", name: "Maryland" },
+  { id: "MA", name: "Massachusetts" },
+  { id: "MI", name: "Michigan" },
+  { id: "MN", name: "Minnesota" },
+  { id: "MS", name: "Mississippi" },
+  { id: "MO", name: "Missouri" },
+  { id: "MT", name: "Montana" },
+  { id: "NE", name: "Nebraska" },
+  { id: "NV", name: "Nevada" },
+  { id: "NH", name: "New Hampshire" },
+  { id: "NJ", name: "New Jersey" },
+  { id: "NM", name: "New Mexico" },
+  { id: "NY", name: "New York" },
+  { id: "NC", name: "North Carolina" },
+  { id: "ND", name: "North Dakota" },
+  { id: "OH", name: "Ohio" },
+  { id: "OK", name: "Oklahoma" },
+  { id: "OR", name: "Oregon" },
+  { id: "PA", name: "Pennsylvania" },
+  { id: "RI", name: "Rhode Island" },
+  { id: "SC", name: "South Carolina" },
+  { id: "SD", name: "South Dakota" },
+  { id: "TN", name: "Tennessee" },
+  { id: "TX", name: "Texas" },
+  { id: "UT", name: "Utah" },
+  { id: "VT", name: "Vermont" },
+  { id: "VA", name: "Virginia" },
+  { id: "WA", name: "Washington" },
+  { id: "WV", name: "West Virginia" },
+  { id: "WI", name: "Wisconsin" },
+  { id: "WY", name: "Wyoming" },
 ];
 
 export default function OnboardingPage() {
@@ -108,7 +150,7 @@ export default function OnboardingPage() {
                   <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
                     <Briefcase className="w-4 h-4" /> Legal Entity Type
                   </label>
-                  <Select value={businessType} onValueChange={setBusinessType}>
+                  <Select value={businessType} onValueChange={(val) => setBusinessType(val || "")}>
                     <SelectTrigger className="bg-slate-950/50 border-slate-800 text-white focus:ring-indigo-500">
                       <SelectValue placeholder="Select business type" />
                     </SelectTrigger>
@@ -129,7 +171,7 @@ export default function OnboardingPage() {
                 <label className="text-sm font-medium text-slate-300 flex items-center gap-2 mb-3">
                   <Map className="w-4 h-4" /> Select States
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin">
                   {US_STATES.map((state) => {
                     const isSelected = selectedStates.includes(state.id);
                     return (

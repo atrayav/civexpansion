@@ -93,3 +93,38 @@ create policy "Users can delete own deadlines" on deadlines for delete using (
 
 -- Storage bucket for licenses (Assuming a bucket named "licenses")
 -- create policy "Users can upload their own licenses" on storage.objects for insert with check ( bucket_id = 'licenses' AND auth.uid()::text = (storage.foldername(name))[1] );
+
+-- -----------------------------------------------------------------------
+-- NEW TABLES (added for MVP functionality)
+-- -----------------------------------------------------------------------
+
+-- ANALYSES TABLE — stores jurisdiction compliance map results per user
+create table if not exists analyses (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid not null,
+  business_name text,
+  business_type text,
+  states text[],
+  results jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table analyses enable row level security;
+create policy "Users can view own analyses" on analyses for select using (auth.uid() = user_id);
+create policy "Users can insert own analyses" on analyses for insert with check (auth.uid() = user_id);
+create policy "Users can delete own analyses" on analyses for delete using (auth.uid() = user_id);
+
+-- GAP_ANALYSES TABLE — stores gap analysis results per user
+create table if not exists gap_analyses (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid not null,
+  business_type text,
+  target_states text,
+  results jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table gap_analyses enable row level security;
+create policy "Users can view own gap analyses" on gap_analyses for select using (auth.uid() = user_id);
+create policy "Users can insert own gap analyses" on gap_analyses for insert with check (auth.uid() = user_id);
+create policy "Users can delete own gap analyses" on gap_analyses for delete using (auth.uid() = user_id);

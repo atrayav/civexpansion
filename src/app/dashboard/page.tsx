@@ -1,81 +1,150 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarDays, AlertTriangle, ArrowUpRight, CheckCircle2, Clock, Mail } from "lucide-react";
+import {
+  CalendarDays, AlertTriangle, ArrowUpRight, CheckCircle2,
+  Clock, LogOut, Map, PlusCircle, Loader2
+} from "lucide-react";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+
+interface StateGroup {
+  state: string;
+  stateName: string;
+  stateRiskLevel: "high" | "medium" | "low";
+  requirements: { id: string; title: string; urgency: string; estimatedCost: string; typicalTimeline: string; filingAuthority: string }[];
+}
+
+interface Analysis {
+  id: string;
+  business_name: string | null;
+  business_type: string | null;
+  states: string[];
+  results: StateGroup[];
+  created_at: string;
+}
+
+function riskBadgeClass(level: string) {
+  if (level === "high") return "bg-rose-500/20 text-rose-400 border-rose-500/30";
+  if (level === "medium") return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+  return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+}
+
+function urgencyBadgeClass(urgency: string) {
+  if (urgency === "critical") return "bg-rose-500/20 text-rose-400 border border-rose-500/30";
+  if (urgency === "high") return "bg-amber-500/20 text-amber-400 border border-amber-500/30";
+  if (urgency === "medium") return "bg-blue-500/20 text-blue-400 border border-blue-500/30";
+  return "bg-slate-500/20 text-slate-400 border border-slate-500/30";
+}
 
 export default function DashboardPage() {
-  // Mock data for MVP demonstration
+  const router = useRouter();
+  const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowser();
+
+    supabase.auth.getUser().then(({ data }: { data: { user: { email?: string } | null } }) => {
+      setUserEmail(data.user?.email ?? null);
+    });
+
+    supabase
+      .from("analyses")
+      .select("id, business_name, business_type, states, results, created_at")
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .then(({ data, error }: { data: Analysis[] | null; error: unknown }) => {
+        if (!error && data) {
+          setAnalyses(data);
+        }
+        setLoading(false);
+      });
+  }, []);
+
+  const handleSignOut = async () => {
+    const supabase = getSupabaseBrowser();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
+
+  // Derive stats from fetched analyses
+  const totalStates = new Set(analyses.flatMap((a) => a.states ?? [])).size;
+  const totalRequirements = analyses.flatMap((a) =>
+    Array.isArray(a.results) ? a.results.flatMap((sg: StateGroup) => sg.requirements ?? []) : []
+  );
+  const criticalCount = totalRequirements.filter((r) => r.urgency === "critical").length;
+  const highCount = totalRequirements.filter((r) => r.urgency === "high").length;
+
   const stats = [
-    { label: "Active Licenses", value: "12", icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
-    { label: "Pending Renewals", value: "3", icon: <Clock className="w-4 h-4 text-amber-400" /> },
-    { label: "Critical Expirations", value: "1", icon: <AlertTriangle className="w-4 h-4 text-rose-400" /> },
-    { label: "States Covered", value: "4", icon: <ArrowUpRight className="w-4 h-4 text-indigo-400" /> },
+    { label: "Compliance Maps", value: String(analyses.length), icon: <Map className="w-4 h-4 text-indigo-400" /> },
+    { label: "States Analyzed", value: String(totalStates), icon: <ArrowUpRight className="w-4 h-4 text-indigo-400" /> },
+    { label: "Total Requirements", value: String(totalRequirements.length), icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
+    { label: "Critical Items", value: String(criticalCount + highCount), icon: <AlertTriangle className="w-4 h-4 text-rose-400" /> },
   ];
 
-  const deadlines = [
-    { 
-      id: 1, 
-      state: "CA", 
-      name: "Foreign Qualification", 
-      expires: "2026-05-15", 
-      status: "30 Days", 
-      urgency: "High",
-      agency: "Secretary of State"
-    },
-    { 
-      id: 2, 
-      state: "NY", 
-      name: "Biennial Statement", 
-      expires: "2026-04-20", 
-      status: "7 Days", 
-      urgency: "Critical",
-      agency: "Department of State"
-    },
-    { 
-      id: 3, 
-      state: "TX", 
-      name: "Franchise Tax Report", 
-      expires: "2026-08-01", 
-      status: "Valid", 
-      urgency: "Normal",
-      agency: "Comptroller"
-    },
-    { 
-      id: 4, 
-      state: "CA", 
-      name: "Statement of Information", 
-      expires: "2026-07-30", 
-      status: "60 Days", 
-      urgency: "Medium",
-      agency: "Secretary of State"
-    }
-  ].sort((a, b) => new Date(a.expires).getTime() - new Date(b.expires).getTime());
-
-  const getStatusBadge = (status: string) => {
-    switch(status) {
-      case "7 Days": return <Badge className="bg-rose-500/20 text-rose-400 border border-rose-500/30">7 Days</Badge>;
-      case "30 Days": return <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30">30 Days</Badge>;
-      case "60 Days": return <Badge className="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">60 Days</Badge>;
-      default: return <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Valid</Badge>;
-    }
-  };
+  // Flatten all requirements into a table-friendly list, newest analysis first
+  const tableRows = analyses.flatMap((analysis) =>
+    Array.isArray(analysis.results)
+      ? analysis.results.flatMap((sg: StateGroup) =>
+          (sg.requirements ?? []).map((req) => ({
+            analysisId: analysis.id,
+            businessName: analysis.business_name ?? analysis.business_type ?? "Unknown",
+            state: sg.state,
+            stateName: sg.stateName,
+            riskLevel: sg.stateRiskLevel,
+            requirementTitle: req.title,
+            filingAuthority: req.filingAuthority,
+            timeline: req.typicalTimeline,
+            urgency: req.urgency,
+            createdAt: analysis.created_at,
+          }))
+        )
+      : []
+  ).slice(0, 20);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans p-4 md:p-8">
-      {/* Background blobs */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none" />
 
       <div className="max-w-6xl mx-auto mt-8 relative z-10 animate-in fade-in duration-700">
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white mb-1">Compliance Dashboard</h1>
-            <p className="text-slate-400 text-sm">Managing requirements across multiple states.</p>
+            <div className="flex items-center gap-3 mb-1">
+              <Link href="/" className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-cyan-400 flex items-center justify-center font-bold text-white text-sm">
+                  C
+                </div>
+              </Link>
+              <h1 className="text-3xl font-bold tracking-tight text-white">Compliance Dashboard</h1>
+            </div>
+            <p className="text-slate-400 text-sm pl-10">
+              {userEmail ? `Signed in as ${userEmail}` : "Your jurisdiction intelligence hub"}
+            </p>
           </div>
-          <Badge variant="outline" className="hidden md:flex border-indigo-500/30 text-indigo-300 bg-indigo-500/10 py-1.5 px-4 rounded-full items-center">
-            <Mail className="w-3 h-3 mr-2" /> Alerting via Resend Active
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Link href="/onboarding">
+              <Button className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hidden md:flex">
+                <PlusCircle className="w-4 h-4 mr-2" /> New Analysis
+              </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              onClick={handleSignOut}
+              className="text-slate-400 hover:text-white hover:bg-slate-800 gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden md:inline">Sign Out</span>
+            </Button>
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -85,62 +154,135 @@ export default function DashboardPage() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-medium text-slate-400">{stat.label}</div>
-                  <div className="p-2 bg-slate-800 rounded-md">
-                    {stat.icon}
-                  </div>
+                  <div className="p-2 bg-slate-800 rounded-md">{stat.icon}</div>
                 </div>
-                <div className="text-3xl font-bold text-white">{stat.value}</div>
+                <div className="text-3xl font-bold text-white">
+                  {loading ? <Loader2 className="w-6 h-6 animate-spin text-slate-600" /> : stat.value}
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Timeline Table */}
+        {/* Requirements Table */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-xl shadow-2xl">
           <CardHeader className="border-b border-white/5">
             <CardTitle className="text-xl text-white flex items-center">
-              <CalendarDays className="w-5 h-5 mr-2 text-indigo-400" /> Upcoming Renewals & Deadlines
+              <CalendarDays className="w-5 h-5 mr-2 text-indigo-400" /> Requirements & Action Items
             </CardTitle>
             <CardDescription className="text-slate-400">
-              Emails are automatically dispatched to team members at 60, 30, and 7 days.
+              All requirements across your analyzed jurisdictions, sorted by urgency.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader className="bg-slate-950/80">
-                <TableRow className="border-white/5 hover:bg-transparent">
-                  <TableHead className="text-slate-400 w-16 text-center">State</TableHead>
-                  <TableHead className="text-slate-400">License / Requirement</TableHead>
-                  <TableHead className="text-slate-400 hidden md:table-cell">Agency</TableHead>
-                  <TableHead className="text-slate-400 w-32">Expiration</TableHead>
-                  <TableHead className="text-slate-400 w-32 text-right">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {deadlines.map((item) => (
-                  <TableRow key={item.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-                    <TableCell>
-                      <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center font-bold text-white border border-white/10 mx-auto">
-                        {item.state}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium text-slate-200">{item.name}</div>
-                      <div className="text-xs text-slate-500 md:hidden mt-1">{item.agency}</div>
-                    </TableCell>
-                    <TableCell className="text-slate-400 hidden md:table-cell">{item.agency}</TableCell>
-                    <TableCell className="text-slate-300 font-mono text-sm pl-4">
-                      {new Date(item.expires).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {getStatusBadge(item.status)}
-                    </TableCell>
+            {loading ? (
+              <div className="flex items-center justify-center py-16 text-slate-500">
+                <Loader2 className="w-6 h-6 animate-spin mr-3" /> Loading your analyses...
+              </div>
+            ) : tableRows.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+                <Map className="w-12 h-12 mb-4 text-slate-700" />
+                <p className="font-medium text-slate-400 mb-2">No analyses yet</p>
+                <p className="text-sm mb-6">Run your first jurisdiction analysis to see requirements here.</p>
+                <Link href="/onboarding">
+                  <Button className="bg-indigo-600 hover:bg-indigo-500 text-white">
+                    <PlusCircle className="w-4 h-4 mr-2" /> Start Compliance Map
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader className="bg-slate-950/80">
+                  <TableRow className="border-white/5 hover:bg-transparent">
+                    <TableHead className="text-slate-400 w-16 text-center">State</TableHead>
+                    <TableHead className="text-slate-400">Requirement</TableHead>
+                    <TableHead className="text-slate-400 hidden md:table-cell">Filing Authority</TableHead>
+                    <TableHead className="text-slate-400 hidden lg:table-cell w-28">Timeline</TableHead>
+                    <TableHead className="text-slate-400 w-28 text-right">Urgency</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {tableRows.map((row, i) => (
+                    <TableRow key={i} className="border-b border-white/5 hover:bg-white/[0.02]">
+                      <TableCell>
+                        <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center font-bold text-white border border-white/10 mx-auto text-xs">
+                          {row.state}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-slate-200 text-sm">{row.requirementTitle}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{row.businessName}</div>
+                      </TableCell>
+                      <TableCell className="text-slate-400 text-sm hidden md:table-cell">
+                        {row.filingAuthority}
+                      </TableCell>
+                      <TableCell className="text-slate-400 text-sm hidden lg:table-cell">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-3 h-3" /> {row.timeline}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge className={`capitalize text-xs ${urgencyBadgeClass(row.urgency)}`}>
+                          {row.urgency}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
+
+        {/* Recent Analyses */}
+        {analyses.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-lg font-bold text-white mb-4">Recent Compliance Maps</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {analyses.map((analysis) => (
+                <Card key={analysis.id} className="bg-slate-900/50 border-white/10 backdrop-blur-xl hover:border-indigo-500/20 transition-colors">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <div className="font-semibold text-white text-sm">
+                          {analysis.business_name || analysis.business_type || "Unnamed"}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {new Date(analysis.created_at).toLocaleDateString("en-US", {
+                            month: "short", day: "numeric", year: "numeric"
+                          })}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="border-slate-700 text-slate-400 text-xs">
+                        {analysis.business_type?.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {(analysis.states ?? []).map((s) => (
+                        <span key={s} className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                    {Array.isArray(analysis.results) && (
+                      <div className="flex gap-2 flex-wrap">
+                        {analysis.results.map((sg: StateGroup) => (
+                          <Badge
+                            key={sg.state}
+                            variant="outline"
+                            className={`text-xs border capitalize ${riskBadgeClass(sg.stateRiskLevel)}`}
+                          >
+                            {sg.state}: {sg.stateRiskLevel} risk
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

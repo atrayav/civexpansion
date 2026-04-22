@@ -19,7 +19,7 @@ export default function Home() {
             <Link className="text-sm font-medium hover:text-white text-slate-400 transition-colors" href="/gap-analysis">
               Gap Analysis
             </Link>
-            <Link href="/onboarding">
+            <Link href="/signup">
               <Button className="bg-white text-slate-950 hover:bg-slate-200 transition-all shadow-md rounded-full px-5">Get Started</Button>
             </Link>
           </nav>
@@ -43,7 +43,7 @@ export default function Home() {
             Jurisdiction intelligence, license gap analysis, and automated renewal tracking for companies expanding across state lines.
           </p>
           <div className="mt-12 flex flex-col sm:flex-row gap-5 items-center justify-center">
-            <Link href="/onboarding">
+            <Link href="/signup">
               <Button size="lg" className="h-14 px-8 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full text-lg shadow-[0_0_30px_-5px_var(--tw-shadow-color)] shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all duration-300 hover:-translate-y-1 group">
                 Start Compliance Map
                 <svg className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
