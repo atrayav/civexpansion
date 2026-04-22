@@ -2,11 +2,23 @@ import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createServiceClient } from '@/lib/supabase/server'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Resend is only instantiated when the key is present
+function getResend(): Resend | null {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY not set — email notifications skipped')
+    return null
+  }
+  return new Resend(process.env.RESEND_API_KEY)
+}
+
+// Cache of userId → email lookups within a single cron run
+const emailCache = new Map<string, string>()
 
 export async function GET() {
+  emailCache.clear()
   try {
     const db = createServiceClient()
+    const resend = getResend()
 
     const now = new Date()
     const in30Days = new Date(now)
@@ -77,20 +89,35 @@ export async function GET() {
 
       if (!shouldNotify || !flagField) continue
 
-      // Resend scaffold — only sends if API key is configured
-      if (process.env.RESEND_API_KEY) {
+      // Only send if Resend is configured
+      if (resend) {
         try {
-          // In production, fetch the user's email from auth.users via admin API
-          // For now we use a placeholder; wire in real email via supabase admin.listUsers()
-          await resend.emails.send({
-            from: 'CivExpander Alerts <alerts@civexpander.com>',
-            to: 'admin@example.com', // TODO: replace with real user email from auth
-            subject: `Action Required: ${stateCode} ${requirementName} due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
-            html: `<p>Hi ${companyName},</p>
-                   <p>Your <strong>${stateCode} ${requirementName}</strong> expires in <strong>${daysLeft} day${daysLeft !== 1 ? 's' : ''}</strong>.</p>
-                   <p>Log in to your <a href="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://civexpander.com'}/dashboard">CivExpander dashboard</a> to take action.</p>`,
-          })
-          emailsSent++
+          // Resolve real user email via Supabase Admin API (cached per cron run)
+          const userId = license.user_id as string
+          let userEmail = emailCache.get(userId)
+          if (!userEmail) {
+            const { data: authUser, error: authErr } = await db.auth.admin.getUserById(userId)
+            if (authErr || !authUser?.user?.email) {
+              console.warn(`Could not resolve email for user ${userId}:`, authErr?.message)
+            } else {
+              userEmail = authUser.user.email
+              emailCache.set(userId, userEmail)
+            }
+          }
+
+          if (!userEmail) {
+            console.warn(`Skipping email for user ${userId} — no email found`)
+          } else {
+            await resend.emails.send({
+              from: 'CivExpander Alerts <alerts@civexpander.com>',
+              to: userEmail,
+              subject: `Action Required: ${stateCode} ${requirementName} due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
+              html: `<p>Hi ${companyName || 'there'},</p>
+                     <p>Your <strong>${stateCode} ${requirementName}</strong> expires in <strong>${daysLeft} day${daysLeft !== 1 ? 's' : ''}</strong>.</p>
+                     <p>Log in to your <a href="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://civexpander.com'}/dashboard">CivExpander dashboard</a> to take action.</p>`,
+            })
+            emailsSent++
+          }
         } catch (emailErr) {
           console.error('Email send failed:', emailErr)
         }

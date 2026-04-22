@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   CalendarDays, AlertTriangle, ArrowUpRight, CheckCircle2,
-  Clock, LogOut, Map, PlusCircle, Loader2
+  Clock, LogOut, Map, PlusCircle, Loader2, FileText
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 
@@ -27,6 +27,26 @@ interface Analysis {
   states: string[];
   results: StateGroup[];
   created_at: string;
+}
+
+interface TrackedLicense {
+  id: string;
+  status: string;
+  expiration_date: string | null;
+  requirements: {
+    name: string;
+    jurisdictions: { code: string; name: string } | null;
+  } | null;
+}
+
+function expiryStatus(expDate: string | null): { label: string; cls: string } {
+  if (!expDate) return { label: "No date", cls: "bg-slate-500/20 text-slate-400 border-slate-500/30" };
+  const now = new Date();
+  const exp = new Date(expDate);
+  const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return { label: "Expired", cls: "bg-rose-500/20 text-rose-400 border-rose-500/30" };
+  if (diffDays <= 30) return { label: `${diffDays}d left`, cls: "bg-amber-500/20 text-amber-400 border-amber-500/30" };
+  return { label: "Active", cls: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" };
 }
 
 function riskBadgeClass(level: string) {
@@ -47,6 +67,8 @@ export default function DashboardPage() {
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [licenses, setLicenses] = useState<TrackedLicense[]>([]);
+  const [licensesLoading, setLicensesLoading] = useState(true);
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
@@ -61,10 +83,25 @@ export default function DashboardPage() {
       .order("created_at", { ascending: false })
       .limit(10)
       .then(({ data, error }: { data: Analysis[] | null; error: unknown }) => {
-        if (!error && data) {
-          setAnalyses(data);
-        }
+        if (!error && data) setAnalyses(data);
         setLoading(false);
+      });
+
+    supabase
+      .from("company_licenses")
+      .select(`
+        id,
+        status,
+        expiration_date,
+        requirements (
+          name,
+          jurisdictions ( code, name )
+        )
+      `)
+      .order("expiration_date", { ascending: true })
+      .then(({ data, error }: { data: TrackedLicense[] | null; error: unknown }) => {
+        if (!error && data) setLicenses(data);
+        setLicensesLoading(false);
       });
   }, []);
 
@@ -228,6 +265,78 @@ export default function DashboardPage() {
                       </TableCell>
                     </TableRow>
                   ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Tracked Licenses */}
+        <Card className="bg-slate-900/50 border-white/10 backdrop-blur-xl shadow-2xl mt-8">
+          <CardHeader className="border-b border-white/5">
+            <CardTitle className="text-xl text-white flex items-center">
+              <FileText className="w-5 h-5 mr-2 text-indigo-400" /> Tracked Licenses
+            </CardTitle>
+            <CardDescription className="text-slate-400">
+              Licenses uploaded via Gap Analysis, ordered by expiry date.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {licensesLoading ? (
+              <div className="flex items-center justify-center py-12 text-slate-500">
+                <Loader2 className="w-5 h-5 animate-spin mr-3" /> Loading licenses...
+              </div>
+            ) : licenses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 text-slate-500 px-6 text-center">
+                <FileText className="w-10 h-10 mb-4 text-slate-700" />
+                <p className="font-medium text-slate-400 mb-1">No licenses tracked yet</p>
+                <p className="text-sm text-slate-500">
+                  Upload documents in{" "}
+                  <Link href="/gap-analysis" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
+                    Gap Analysis
+                  </Link>{" "}
+                  to get started.
+                </p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader className="bg-slate-950/80">
+                  <TableRow className="border-white/5 hover:bg-transparent">
+                    <TableHead className="text-slate-400 w-16 text-center">State</TableHead>
+                    <TableHead className="text-slate-400">License Name</TableHead>
+                    <TableHead className="text-slate-400 hidden md:table-cell w-36">Expiry Date</TableHead>
+                    <TableHead className="text-slate-400 w-28 text-right">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {licenses.map((lic) => {
+                    const stateCode = lic.requirements?.jurisdictions?.code ?? "—";
+                    const name = lic.requirements?.name ?? "Unknown License";
+                    const { label, cls } = expiryStatus(lic.expiration_date);
+                    return (
+                      <TableRow key={lic.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                        <TableCell>
+                          <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center font-bold text-white border border-white/10 mx-auto text-xs">
+                            {stateCode}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium text-slate-200 text-sm">{name}</div>
+                          <div className="text-xs text-slate-500 mt-0.5 capitalize">{lic.status}</div>
+                        </TableCell>
+                        <TableCell className="text-slate-300 font-mono text-sm hidden md:table-cell">
+                          {lic.expiration_date
+                            ? new Date(lic.expiration_date).toLocaleDateString("en-US", {
+                                month: "short", day: "numeric", year: "numeric",
+                              })
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge className={`text-xs border ${cls}`}>{label}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
